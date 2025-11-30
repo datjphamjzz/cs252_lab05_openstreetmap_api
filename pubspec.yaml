@@ -12,6 +12,7 @@ dependencies:
   latlong2: ^0.9.1
   flutter_map: ^8.2.2
   http: ^1.6.0
+  translator: ^1.0.4+1
 
 dev_dependencies:
   flutter_test:
