@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'translation_service.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -14,19 +15,25 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _translateInputController =
+      TextEditingController();
+  final TranslationService _translationService = TranslationService();
   bool _isSearching = false;
   bool _isLoadingPOI = false;
   bool _isLoadingWeather = false;
+  bool _isTranslatingText = false;
   List<Map<String, dynamic>> _searchResults = [];
   List<Map<String, dynamic>> _pointsOfInterest = [];
   Map<String, dynamic>? _weatherData;
   double _centerLat = 10.762622;
   double _centerLon = 106.660172;
   String _locationName = "Ho Chi Minh City";
+  String _translatedText = '';
 
   @override
   void dispose() {
     _searchController.dispose();
+    _translateInputController.dispose();
     super.dispose();
   }
 
@@ -170,6 +177,35 @@ out body 5;
     });
     _fetchNearbyByPOI(lat, lon);
     _fetchWeather(lat, lon);
+  }
+
+  Future<void> _translateInputText() async {
+    final text = _translateInputController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isTranslatingText = true);
+
+    try {
+      final translated = await _translationService.translateToVietnamese(text);
+      setState(() {
+        _translatedText = translated;
+        _isTranslatingText = false;
+      });
+    } catch (e) {
+      setState(() => _isTranslatingText = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Translation error: $e')));
+      }
+    }
+  }
+
+  void _clearTranslation() {
+    setState(() {
+      _translateInputController.clear();
+      _translatedText = '';
+    });
   }
 
   @override
@@ -351,11 +387,14 @@ out body 5;
             color: Colors.grey[100],
             child: Column(
               children: [
-                // Upper half - Weather
+                // Weather section
                 Expanded(child: _buildWeatherSection()),
                 Divider(height: 1, thickness: 1, color: Colors.grey[300]),
-                // Lower half - POIs
+                // POI section
                 Expanded(child: _buildPOISection()),
+                Divider(height: 1, thickness: 1, color: Colors.grey[300]),
+                // Translation section
+                Expanded(child: _buildTranslationSection()),
               ],
             ),
           ),
@@ -500,7 +539,7 @@ out body 5;
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Color(0xFFF4BCCC).withOpacity(0.1),
+        color: Color(0xFFF4BCCC).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -585,7 +624,7 @@ out body 5;
                         leading: Container(
                           padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Color(0xFFF4BCCC).withOpacity(0.2),
+                            color: Color(0xFFF4BCCC).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -641,5 +680,159 @@ out body 5;
       default:
         return Icons.store;
     }
+  }
+
+  Widget _buildTranslationSection() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Color(0xFFF4BCCC)),
+            child: Row(
+              children: [
+                Icon(Icons.translate, color: Colors.white, size: 24),
+                SizedBox(width: 12),
+                Text(
+                  'Translator (EN → VI)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Input section
+                  Text(
+                    'English',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  TextField(
+                    controller: _translateInputController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: 'Enter English text to translate...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Color(0xFFF4BCCC)),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isTranslatingText
+                              ? null
+                              : _translateInputText,
+                          icon: _isTranslatingText
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(Icons.translate, size: 18),
+                          label: Text('Translate'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFFF4BCCC),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _clearTranslation,
+                        icon: Icon(Icons.clear, size: 18),
+                        label: Text('Clear'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[300],
+                          foregroundColor: Color(0xFF333333),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  // Output section
+                  Text(
+                    'Vietnamese',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF4BCCC).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Color(0xFFF4BCCC).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    constraints: BoxConstraints(minHeight: 100),
+                    child: _translatedText.isEmpty
+                        ? Text(
+                            'Translation will appear here...',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : SelectableText(
+                            _translatedText,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF333333),
+                              height: 1.5,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
