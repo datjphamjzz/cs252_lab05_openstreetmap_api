@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:openstreetmap_api/auth_service.dart';
+import 'package:openstreetmap_api/login_screen.dart';
 import 'translation_service.dart';
 
 class MyApp extends StatefulWidget {
@@ -18,6 +20,7 @@ class _MyAppState extends State<MyApp> {
   final TextEditingController _translateInputController =
       TextEditingController();
   final TranslationService _translationService = TranslationService();
+  final AuthService _authService = AuthService();
   bool _isSearching = false;
   bool _isLoadingPOI = false;
   bool _isLoadingWeather = false;
@@ -35,6 +38,26 @@ class _MyAppState extends State<MyApp> {
     _searchController.dispose();
     _translateInputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      await _authService.signOut();
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _searchLocation(String query) async {
@@ -262,59 +285,88 @@ out body 5;
                   right: 20,
                   child: Column(
                     children: [
-                      Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(
-                              Icons.search,
-                              size: 24,
-                              color: Color(0xFFF4BCCC),
-                            ),
-                            hintText: "Search for a location...",
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide.none,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            suffixIcon: _isSearching
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12.0),
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFFF4BCCC),
-                                      ),
-                                    ),
-                                  )
-                                : IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      color: Color(0xFFF4BCCC),
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchResults.clear();
-                                      });
-                                    },
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
                                   ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(
+                                    Icons.search,
+                                    size: 24,
+                                    color: Color(0xFFF4BCCC),
+                                  ),
+                                  hintText: "Search for a location...",
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderSide: BorderSide.none,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  suffixIcon: _isSearching
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(12.0),
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFFF4BCCC),
+                                            ),
+                                          ),
+                                        )
+                                      : IconButton(
+                                          icon: Icon(
+                                            Icons.clear,
+                                            color: Color(0xFFF4BCCC),
+                                          ),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            setState(() {
+                                              _searchResults.clear();
+                                            });
+                                          },
+                                        ),
+                                ),
+                                onSubmitted: _searchLocation,
+                              ),
+                            ),
                           ),
-                          onSubmitted: _searchLocation,
-                        ),
+                          const SizedBox(width: 10),
+                          Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Colors.white,
+                              ),
+                              tooltip: 'Logout',
+                              onPressed: _handleLogout,
+                            ),
+                          ),
+                        ],
                       ),
                       if (_searchResults.isNotEmpty)
                         Container(
