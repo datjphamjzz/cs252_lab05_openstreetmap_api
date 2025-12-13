@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:openstreetmap_api/auth_service.dart';
 import 'package:openstreetmap_api/login_screen.dart';
-import 'translation_service.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -19,7 +18,7 @@ class _MyAppState extends State<MyApp> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _translateInputController =
       TextEditingController();
-  final TranslationService _translationService = TranslationService();
+
   final AuthService _authService = AuthService();
   bool _isSearching = false;
   bool _isLoadingPOI = false;
@@ -67,11 +66,12 @@ class _MyAppState extends State<MyApp> {
 
     try {
       final url = Uri.parse(
-        "https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=5",
+        'https://datjphamjzz-cs252-lab-project.hf.space/api/search',
       );
-      final response = await http.get(
+      final response = await http.post(
         url,
-        headers: {'User-Agent': 'FlutterMapApp'},
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'query': query}),
       );
 
       if (response.statusCode != 200) {
@@ -100,23 +100,13 @@ class _MyAppState extends State<MyApp> {
     });
 
     try {
-      final radius = 1000;
-      final query =
-          """
-[out:json];
-(
-  node["amenity"~"restaurant|cafe|school|university|hospital"](around:$radius,$lat,$lon);
-  node["tourism"~"hotel|museum"](around:$radius,$lat,$lon);
-  node["shop"](around:$radius,$lat,$lon);
-);
-out body 5;
-""";
-
-      final url = Uri.parse('https://overpass-api.de/api/interpreter');
+      final url = Uri.parse(
+        'https://datjphamjzz-cs252-lab-project.hf.space/api/poi',
+      );
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {"data": query},
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'lat': lat, 'lon': lon}),
       );
 
       if (response.statusCode != 200) {
@@ -159,13 +149,15 @@ out body 5;
     });
 
     try {
-      // Replace with your OpenWeatherMap API key
-      const apiKey = '5ee19ad194ad2ec02b056a51c3d712c8';
       final url = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric',
+        'https://datjphamjzz-cs252-lab-project.hf.space/api/weather',
       );
-
-      final response = await http.get(url);
+      final response = await http.post(
+        // Changed from GET to POST
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'lat': lat, 'lon': lon}),
+      );
 
       if (response.statusCode != 200) {
         throw ("Failed to fetch weather: ${response.statusCode}");
@@ -209,9 +201,31 @@ out body 5;
     setState(() => _isTranslatingText = true);
 
     try {
-      final translated = await _translationService.translateToVietnamese(text);
+      // CHANGE: Call your backend instead of the local service
+      final url = Uri.parse(
+        'https://datjphamjzz-cs252-lab-project.hf.space/api/translate',
+      );
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'text': text}),
+      );
+
+      String resultText = "";
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        // Backend returns [{"translation_text": "..."}]
+        if (data.isNotEmpty && data[0] is Map) {
+          resultText = data[0]['translation_text'] ?? "Translation failed";
+        }
+      } else {
+        resultText = "Error: ${response.statusCode}";
+      }
+
       setState(() {
-        _translatedText = translated;
+        _translatedText = resultText;
         _isTranslatingText = false;
       });
     } catch (e) {
